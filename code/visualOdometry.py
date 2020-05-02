@@ -117,7 +117,7 @@ def svd(A):
     U_matrix = np.matmul(A, np.matmul(V_eigen_vector_matrix, Sigma_inverse))
 
     # Print all the matrices after SVD decomposition
-    print(f'SVD decomposition of A is:\nU: \n {U_matrix}')
+    print(f'SVD decomposition of E is:\nU: \n {U_matrix}')
     print(f'Sigma :\n {Sigma_eigen_value_matrix}')
     print(f'V transpose :\n {V_transpose}')
 
@@ -153,6 +153,17 @@ k_transpose = np.transpose(KMatrix)
 
 E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
 print("Essential matrix is: \n", E, "\n")
+
+# SVD decomposition of the fundamental matrix E
+E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = svd(E)
+
+# Replace Sigma matrix with (1,1,0)
+correction_matrix = np.array([[1,0,0],
+                              [0,1,0],
+                              [0,0,0]])
+# print(correction_matrix)
+E_corrected = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
+print("\nCorrected essential matrix is: \n", E_corrected, "\n")
 
 
 
