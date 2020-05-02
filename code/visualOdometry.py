@@ -3,6 +3,9 @@ import os
 import numpy as np
 import random
 
+import numpy as np
+import math
+from numpy import linalg as LA
 from Oxford_dataset.ReadCameraModel import ReadCameraModel
 
 
@@ -83,18 +86,74 @@ def RANSAC(kp1, kp2):
     return maxF
 
 
-imagesList = os.listdir('Oxford_dataset/data')
-fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('Oxford_dataset/model')
+def svd(A):
+    A_transpose = np.transpose(A)
+    intermediate_matrix = np.matmul(A_transpose, A)
+
+    # compute eigen vectors and eigen values
+    w, v = LA.eig(intermediate_matrix)
+    # print(w) #w is the list for Eigen values
+    # print(v) #v is the Eigen vector matrix where columns of V correspond to
+    # eigen vectors of (A_transpose*A)
+
+    # Define the matrix V
+    V_eigen_vector_matrix = v
+    V_transpose = np.transpose(V_eigen_vector_matrix)
+
+    # Make an empty list called eigen_square_root
+    eigen_square_root = []
+
+    # take the square root of eigen values
+    for i in range(0, len(w)):
+        eigen_square_root.append(math.sqrt(abs(w[i])))
+
+    # Generate eigen value matrix
+    Sigma_eigen_value_matrix = np.diag(eigen_square_root)
+
+    # Find inverse of eigen value matrix
+    Sigma_inverse = np.linalg.inv(Sigma_eigen_value_matrix)
+
+    # Find the U matrix
+    U_matrix = np.matmul(A, np.matmul(V_eigen_vector_matrix, Sigma_inverse))
+
+    # Print all the matrices after SVD decomposition
+    print(f'SVD decomposition of A is:\nU: \n {U_matrix}')
+    print(f'Sigma :\n {Sigma_eigen_value_matrix}')
+    print(f'V transpose :\n {V_transpose}')
+
+    return U_matrix, Sigma_eigen_value_matrix, V_transpose
+
+    # Uncomment the following section to multiply U, sigma and V_tranpose
+    # You'll get the original matrix A again which shows SVD is correct
+    # SVD_check = np.matmul(U_matrix, np.matmul(Sigma_eigen_value_matrix, V_transpose))
+    # print(f'SVD check matrix:\n {SVD_check}')
+
+
+imagesList = os.listdir('../Oxford_dataset/data')
+fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('../Oxford_dataset/model')
 KMatrix = np.array([[fx, 0, cx],[0, fy, cy],[0, 0, 1]])
 
-for index in range(0,1):#len(imagesList)-2):
-    img1 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index]))
-    img2 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index+1]))
+# for index in range(0,len(imagesList)-1):
+for index in range(0, 1):
+    img1 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index]))
+    img2 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index+1]))
 
     keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
 
     fundamentalMatrix = RANSAC(keypts1, keypts2)
-    print("fundamental Matrix is", fundamentalMatrix)
+    print("\nFundamental Matrix is:\n", fundamentalMatrix, "\n")
+    # print("Length of fundamental matrix is: ", len(fundamentalMatrix))
+    # print(fundamentalMatrix[1][2])
+
+#Estimate Essential Matrix from Fundamental Matrix
+# E = K_t.F.K
+#essential_matrix = E
+k = KMatrix
+k_transpose = np.transpose(KMatrix)
+
+E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
+print("Essential matrix is: \n", E, "\n")
+
 
 
 
