@@ -141,8 +141,8 @@ imagesList = os.listdir('../Oxford_dataset/data')
 fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('../Oxford_dataset/model')
 KMatrix = np.array([[fx, 0, cx],[0, fy, cy],[0, 0, 1]])
 
-# for index in range(0,len(imagesList)-1):
-for index in range(0, 4):
+for index in range(1611,len(imagesList)-1):
+# for index in range(0, 4):
     img1 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index]))
     img2 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index+1]))
 
@@ -162,90 +162,91 @@ for index in range(0, 4):
     E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
     # print("Essential matrix is: \n", E, "\n")
 
-    # SVD decomposition of the fundamental matrix E
-    E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = svd(E)
+    if not (np.linalg.det(E) == 0):
+        # SVD decomposition of the fundamental matrix E
+        E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = svd(E)
 
-    # Replace Sigma matrix with (1,1,0)
-    correction_matrix = np.array([[1,0,0],
-                                  [0,1,0],
-                                  [0,0,0]])
-    # print(correction_matrix)
-    E_corrected = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
-    # print("\nCorrected essential matrix is: \n", E_corrected, "\n")
+        # Replace Sigma matrix with (1,1,0)
+        correction_matrix = np.array([[1,0,0],
+                                      [0,1,0],
+                                      [0,0,0]])
+        # print(correction_matrix)
+        E_corrected = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
+        # print("\nCorrected essential matrix is: \n", E_corrected, "\n")
 
-    #calculate pose configurations
-    w = np.array([[0,-1,0],
-                  [1,0,0],
-                  [0,0,1]])
+        #calculate pose configurations
+        w = np.array([[0,-1,0],
+                      [1,0,0],
+                      [0,0,1]])
 
-    w_transpose = np.transpose(w)
-    # print(w[:,2])
-    c1 = E__Umatrix[:,2]
-    c2 = -E__Umatrix[:,2]
-    c3 = E__Umatrix[:,2]
-    c4 = -E__Umatrix[:,2]
+        w_transpose = np.transpose(w)
+        # print(w[:,2])
+        c1 = E__Umatrix[:,2]
+        c2 = -E__Umatrix[:,2]
+        c3 = E__Umatrix[:,2]
+        c4 = -E__Umatrix[:,2]
 
-    # print("c1 is : ", c1)
-    # print(len(c1))
-    # print(c1[0])
-    # print(c1.flatten())
+        # print("c1 is : ", c1)
+        # print(len(c1))
+        # print(c1[0])
+        # print(c1.flatten())
 
-    r1 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
-    r2 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
-    r3 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
-    r4 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
+        r1 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
+        r2 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
+        r3 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
+        r4 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
 
-    # print(r4)
-    # print(np.linalg.det(r4))
+        # print(r4)
+        # print(np.linalg.det(r4))
 
-    #check r, det(r) should be 1
-    #If det(R)=−1, the camera pose must be corrected i.e. C=−C and R=−R.
-    r1_det = round(np.linalg.det(r1))
-    r2_det = round(np.linalg.det(r2))
-    r3_det = round(np.linalg.det(r3))
-    r4_det = round(np.linalg.det(r4))
+        #check r, det(r) should be 1
+        #If det(R)=−1, the camera pose must be corrected i.e. C=−C and R=−R.
+        r1_det = round(np.linalg.det(r1))
+        r2_det = round(np.linalg.det(r2))
+        r3_det = round(np.linalg.det(r3))
+        r4_det = round(np.linalg.det(r4))
 
-    if r1_det == -1:
-        c1 = -c1
-        r1 = -r1
+        if r1_det == -1:
+            c1 = -c1
+            r1 = -r1
 
-    if r2_det == -1:
-        c2 = -c2
-        r2 = -r2
+        if r2_det == -1:
+            c2 = -c2
+            r2 = -r2
 
-    if r3_det == -1:
-        c3 = -c3
-        r3 = -r3
+        if r3_det == -1:
+            c3 = -c3
+            r3 = -r3
 
-    if r4_det == -1:
-        c4 = -c4
-        r4 = -r4
+        if r4_det == -1:
+            c4 = -c4
+            r4 = -r4
 
-    # print(r4)
-    # print(np.linalg.det(r4))
+        # print(r4)
+        # print(np.linalg.det(r4))
 
-    # print("r1 is: \n",r1, "\n")
-    # print(r1[2][2])
+        # print("r1 is: \n",r1, "\n")
+        # print(r1[2][2])
 
-    r1_flat = r1.flatten()
-    r2_flat = r2.flatten()
-    r3_flat = r3.flatten()
-    r4_flat = r4.flatten()
+        r1_flat = r1.flatten()
+        r2_flat = r2.flatten()
+        r3_flat = r3.flatten()
+        r4_flat = r4.flatten()
 
-    # print("r1_flat is: \n",r1_flat,"\n")
+        # print("r1_flat is: \n",r1_flat,"\n")
 
-    config1 = np.concatenate((c1, r1_flat), axis=0)
-    config2 = np.concatenate((c2, r2_flat), axis=0)
-    config3 = np.concatenate((c3, r3_flat), axis=0)
-    config4 = np.concatenate((c4, r4_flat), axis=0)
+        config1 = np.concatenate((c1, r1_flat), axis=0)
+        config2 = np.concatenate((c2, r2_flat), axis=0)
+        config3 = np.concatenate((c3, r3_flat), axis=0)
+        config4 = np.concatenate((c4, r4_flat), axis=0)
 
-    # print("camera config1 flat is: (c1,r1) = \n", config1, "\n")
+        # print("camera config1 flat is: (c1,r1) = \n", config1, "\n")
 
-    # print("\nConfiguration 1 is: \n", config1)
-    # print("\nConfiguration 2 is: \n", config2)
-    # print("\nConfiguration 3 is: \n", config3)
-    # print("\nConfiguration 4 is: \n", config4)
-    #
-    append_rows_in_csv_file('camera_poses.csv',index, config1, config2, config3, config4)
-    # append_rows_in_csv_file('camera_poses.csv',index, [config1], [config2], [config3], [config4])
+        # print("\nConfiguration 1 is: \n", config1)
+        # print("\nConfiguration 2 is: \n", config2)
+        # print("\nConfiguration 3 is: \n", config3)
+        # print("\nConfiguration 4 is: \n", config4)
+        #
+        append_rows_in_csv_file('camera_poses.csv',index, config1, config2, config3, config4)
+        # append_rows_in_csv_file('camera_poses.csv',index, [config1], [config2], [config3], [config4])
 
