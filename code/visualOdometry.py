@@ -2,12 +2,11 @@ import cv2
 import os
 import numpy as np
 import random
-
+from csv import writer
 import numpy as np
 import math
 from numpy import linalg as LA
 from Oxford_dataset.ReadCameraModel import ReadCameraModel
-
 
 def generateSIFTKeyPts(img1, img2):
     BEST_MATCH_PERCENT = 0.15
@@ -35,7 +34,6 @@ def generateSIFTKeyPts(img1, img2):
 
     return SIFTpts1, SIFTpts2
 
-
 def EstimateFundmentalMatrix(pts1, pts2):
     #applying the SVD concept
     A = np.zeros((8, 9), dtype=np.float32)
@@ -57,8 +55,6 @@ def EstimateFundmentalMatrix(pts1, pts2):
 
     F = np.dot(U1,np.dot(S2, V1))
     return F
-
-
 
 def RANSAC(kp1, kp2):
     maximumInliers = 0
@@ -84,7 +80,6 @@ def RANSAC(kp1, kp2):
             maxF = F
 
     return maxF
-
 
 def svd(A):
     A_transpose = np.transpose(A)
@@ -116,10 +111,10 @@ def svd(A):
     # Find the U matrix
     U_matrix = np.matmul(A, np.matmul(V_eigen_vector_matrix, Sigma_inverse))
 
-    # Print all the matrices after SVD decomposition
-    print(f'SVD decomposition of E is:\nU: \n {U_matrix}')
-    print(f'Sigma :\n {Sigma_eigen_value_matrix}')
-    print(f'V transpose :\n {V_transpose}')
+    # # Print all the matrices after SVD decomposition
+    # print(f'SVD decomposition of E is:\nU: \n {U_matrix}')
+    # print(f'Sigma :\n {Sigma_eigen_value_matrix}')
+    # print(f'V transpose :\n {V_transpose}')
 
     return U_matrix, Sigma_eigen_value_matrix, V_transpose
 
@@ -128,44 +123,129 @@ def svd(A):
     # SVD_check = np.matmul(U_matrix, np.matmul(Sigma_eigen_value_matrix, V_transpose))
     # print(f'SVD check matrix:\n {SVD_check}')
 
+def append_rows_in_csv_file(file_name, between_photos_index, list_of_elem1, list_of_elem2, list_of_elem3, list_of_elem4):
+    # Open file in append mode
+    with open(file_name, 'a+', newline='') as write_obj:
+        # Create a writer object from csv module
+        csv_writer = writer(write_obj)
+        # Add contents of list as last row in the csv file
+        # csv_writer.writerow(list(between_photos_index))
+        write_obj.write('%d \n' % between_photos_index)
+        csv_writer.writerow(list_of_elem1)
+        csv_writer.writerow(list_of_elem2)
+        csv_writer.writerow(list_of_elem3)
+        csv_writer.writerow(list_of_elem4)
+
 
 imagesList = os.listdir('../Oxford_dataset/data')
 fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('../Oxford_dataset/model')
 KMatrix = np.array([[fx, 0, cx],[0, fy, cy],[0, 0, 1]])
 
 # for index in range(0,len(imagesList)-1):
-for index in range(0, 1):
+for index in range(0, 4):
     img1 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index]))
     img2 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index+1]))
 
     keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
 
     fundamentalMatrix = RANSAC(keypts1, keypts2)
-    print("\nFundamental Matrix is:\n", fundamentalMatrix, "\n")
+    # print("\nFundamental Matrix is:\n", fundamentalMatrix, "\n")
     # print("Length of fundamental matrix is: ", len(fundamentalMatrix))
     # print(fundamentalMatrix[1][2])
 
-#Estimate Essential Matrix from Fundamental Matrix
-# E = K_t.F.K
-#essential_matrix = E
-k = KMatrix
-k_transpose = np.transpose(KMatrix)
+    #Estimate Essential Matrix from Fundamental Matrix
+    # E = K_t.F.K
+    #essential_matrix = E
+    k = KMatrix
+    k_transpose = np.transpose(KMatrix)
 
-E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
-print("Essential matrix is: \n", E, "\n")
+    E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
+    # print("Essential matrix is: \n", E, "\n")
 
-# SVD decomposition of the fundamental matrix E
-E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = svd(E)
+    # SVD decomposition of the fundamental matrix E
+    E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = svd(E)
 
-# Replace Sigma matrix with (1,1,0)
-correction_matrix = np.array([[1,0,0],
-                              [0,1,0],
-                              [0,0,0]])
-# print(correction_matrix)
-E_corrected = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
-print("\nCorrected essential matrix is: \n", E_corrected, "\n")
+    # Replace Sigma matrix with (1,1,0)
+    correction_matrix = np.array([[1,0,0],
+                                  [0,1,0],
+                                  [0,0,0]])
+    # print(correction_matrix)
+    E_corrected = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
+    # print("\nCorrected essential matrix is: \n", E_corrected, "\n")
 
+    #calculate pose configurations
+    w = np.array([[0,-1,0],
+                  [1,0,0],
+                  [0,0,1]])
 
+    w_transpose = np.transpose(w)
+    # print(w[:,2])
+    c1 = E__Umatrix[:,2]
+    c2 = -E__Umatrix[:,2]
+    c3 = E__Umatrix[:,2]
+    c4 = -E__Umatrix[:,2]
 
+    # print("c1 is : ", c1)
+    # print(len(c1))
+    # print(c1[0])
+    # print(c1.flatten())
 
+    r1 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
+    r2 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
+    r3 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
+    r4 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
+
+    # print(r4)
+    # print(np.linalg.det(r4))
+
+    #check r, det(r) should be 1
+    #If det(R)=−1, the camera pose must be corrected i.e. C=−C and R=−R.
+    r1_det = round(np.linalg.det(r1))
+    r2_det = round(np.linalg.det(r2))
+    r3_det = round(np.linalg.det(r3))
+    r4_det = round(np.linalg.det(r4))
+
+    if r1_det == -1:
+        c1 = -c1
+        r1 = -r1
+
+    if r2_det == -1:
+        c2 = -c2
+        r2 = -r2
+
+    if r3_det == -1:
+        c3 = -c3
+        r3 = -r3
+
+    if r4_det == -1:
+        c4 = -c4
+        r4 = -r4
+
+    # print(r4)
+    # print(np.linalg.det(r4))
+
+    # print("r1 is: \n",r1, "\n")
+    # print(r1[2][2])
+
+    r1_flat = r1.flatten()
+    r2_flat = r2.flatten()
+    r3_flat = r3.flatten()
+    r4_flat = r4.flatten()
+
+    # print("r1_flat is: \n",r1_flat,"\n")
+
+    config1 = np.concatenate((c1, r1_flat), axis=0)
+    config2 = np.concatenate((c2, r2_flat), axis=0)
+    config3 = np.concatenate((c3, r3_flat), axis=0)
+    config4 = np.concatenate((c4, r4_flat), axis=0)
+
+    # print("camera config1 flat is: (c1,r1) = \n", config1, "\n")
+
+    # print("\nConfiguration 1 is: \n", config1)
+    # print("\nConfiguration 2 is: \n", config2)
+    # print("\nConfiguration 3 is: \n", config3)
+    # print("\nConfiguration 4 is: \n", config4)
+    #
+    append_rows_in_csv_file('camera_poses.csv',index, config1, config2, config3, config4)
+    # append_rows_in_csv_file('camera_poses.csv',index, [config1], [config2], [config3], [config4])
 
