@@ -193,8 +193,8 @@ def append_rows_in_csv_file(file_name, between_photos_index, list_of_elem1, list
 		csv_writer.writerow(list_of_elem4)
 
 
-imagesList = os.listdir('Oxford_dataset/data')
-fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('Oxford_dataset/model')
+imagesList = os.listdir('../Oxford_dataset/data')
+fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('../Oxford_dataset/model')
 KMatrix = np.array([[fx, 0, cx],[0, fy, cy],[0, 0, 1]])
 PMatrix = np.array([[fx, 0, cx, 0],[0, fy, cy, 0],[0, 0, 1, 0]])
 
@@ -208,8 +208,8 @@ numPoints = 123
 
 for index in range(0, len(imagesList)-5, 5):
 	
-	img1 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index]))
-	img2 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index+5]))
+	img1 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index]))
+	img2 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index+5]))
 
 	keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
 
