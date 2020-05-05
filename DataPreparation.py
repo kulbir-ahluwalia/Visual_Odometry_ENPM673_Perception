@@ -11,6 +11,7 @@ for fileName in os.listdir('./stereo/centre'):
     color_image = cv2.cvtColor(img, cv2.COLOR_BayerGR2BGR)
     undistorted_image = UndistortImage(color_image, LUT)
     greyScale = cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2GRAY)
+    greyScale = cv2.equalizeHist(greyScale)
     cv2.imwrite(os.path.join('./data',fileName), greyScale)
 
 print("done")
