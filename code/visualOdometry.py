@@ -1,6 +1,5 @@
 import cv2
 import os
-import numpy as np
 import random
 from csv import writer, reader
 import numpy as np
@@ -65,7 +64,7 @@ def getCorrectPose(Rset, Cset, points1, points2, KMatrix):
 
 
 def generateSIFTKeyPts(img1, img2):
-	BEST_MATCH_PERCENT = 0.5
+	BEST_MATCH_PERCENT = 1
 	sift = cv2.ORB_create(500) #Generates 500 Max features
 	matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
 
@@ -203,15 +202,36 @@ cameraY = [0]
 cameraZ = [0]
 
 prevH = np.eye(4)
+prevT = 0
 origin = np.array([[0, 0, 0, 1]]).T
 numPoints = 123
 
-for index in range(0, len(imagesList)-5, 5):
-	
-	img1 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index]))
-	img2 = cv2.imread(os.path.join('../Oxford_dataset/data',imagesList[index+5]))
+lk_params = dict(winSize=(21, 21), criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.03))
+feature_detector = cv2.FastFeatureDetector_create(threshold=25, nonmaxSuppression=True)
 
+stepSize = 2
+
+for index in range(0, len(imagesList)-stepSize, stepSize):
+	print(index)
+	img1 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index]))
+	#img1 = np.array(img1, np.uint8)
+	#print(img1.shape)
+	#img1 = cv2.equalizeHist(img1)
+	img2 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index+stepSize]))
+	#img1 = np.array(img1, np.uint8)
+	#img2 = cv2.equalizeHist(img2)
+	cv2.imshow('', img1)
 	keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
+
+	# temp = []
+	# prev_keypoint = feature_detector.detect(img1, None)
+	# for i in range(len(prev_keypoint)):
+	# 	temp.append([prev_keypoint[i].pt[0], prev_keypoint[i].pt[1]])
+	# keypts1 = np.array(temp, np.float32)
+	# keypts2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, keypts1, None, **lk_params)
+	# st = st.reshape((st.shape[0]))
+	# keypts1 = keypts1[st>0]
+	# keypts2 = keypts2[st>0]
 
 	#################################
 	# Code for generating csv files #
@@ -321,8 +341,15 @@ for index in range(0, len(imagesList)-5, 5):
 	# Code for generating csv files #
 	#################################
 
-	E, mask = cv2.findEssentialMat(keypts1, keypts2, KMatrix, cv2.FM_RANSAC)
+	E, mask = cv2.findEssentialMat(keypts1, keypts2, KMatrix, cv2.RANSAC, 0.999, 1, None)
+	mask = mask.reshape(mask.shape[0])
+	keypts1 = keypts1[mask>0]
+	keypts2 = keypts2[mask>0]
+
 	ret, Rcorr, tcorr, mask = cv2.recoverPose(E, keypts1, keypts2)
+	if abs(prevT - tcorr[2][0]) > 1:
+		tcorr[2][0] = -tcorr[2][0]
+	prevT = tcorr[2][0]
 
 	points3D = []
 	PMatrix2 = np.array([[Rcorr[0][0], Rcorr[0][1], Rcorr[0][2], tcorr[0][0]], \
@@ -343,66 +370,67 @@ for index in range(0, len(imagesList)-5, 5):
 	Cset = []
 	Rset = []
 
-	with open('camera_poses.csv', mode='r') as file:
-		csvReader = reader(file, delimiter=',')
-		lineNum = -1
+	# with open('camera_poses.csv', mode='r') as file:
+	# 	csvReader = reader(file, delimiter=',')
+	# 	lineNum = -1
 		
-		for line in csvReader:
-			lineNum += 1
-			if (lineNum >= 5*index + 1) and (lineNum < 5*(index+1)):
-				Cset.append(np.array(line[:3], np.float32))
-				Rset.append(np.array(line[3:], np.float32).reshape((3,3)))
+	# 	for line in csvReader:
+	# 		lineNum += 1
+	# 		if (lineNum >= 5*index + 1) and (lineNum < 5*(index+1)):
+	# 			Cset.append(np.array(line[:3], np.float32))
+	# 			Rset.append(np.array(line[3:], np.float32).reshape((3,3)))
 
 	
 	#Rcorr, Ccorr, points3D = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
 	A = np.zeros((2*len(keypts2), 12))
 
-	for i in range(len(keypts2)):
-		normalized = np.dot(np.linalg.inv(KMatrix), np.array([keypts1[i][0], keypts1[i][1], 1]))
-		#print(points3D)
-		A[2*i][0] = points3D[i][0]
-		A[2*i][1] = points3D[i][1]
-		A[2*i][2] = points3D[i][2]
-		A[2*i][6] = -points3D[i][0]*normalized[0]
-		A[2*i][7] = -points3D[i][1]*normalized[0]
-		A[2*i][8] = -points3D[i][2]*normalized[0]
-		A[2*i][9] = 1
-		A[2*i][11] = -normalized[0]
+	# for i in range(len(keypts2)):
+	# 	normalized = np.dot(np.linalg.inv(KMatrix), np.array([keypts1[i][0], keypts1[i][1], 1]))
+	# 	#print(points3D)
+	# 	A[2*i][0] = points3D[i][0]
+	# 	A[2*i][1] = points3D[i][1]
+	# 	A[2*i][2] = points3D[i][2]
+	# 	A[2*i][6] = -points3D[i][0]*normalized[0]
+	# 	A[2*i][7] = -points3D[i][1]*normalized[0]
+	# 	A[2*i][8] = -points3D[i][2]*normalized[0]
+	# 	A[2*i][9] = 1
+	# 	A[2*i][11] = -normalized[0]
 
-		A[2*i+1][3] = points3D[i][0]
-		A[2*i+1][4] = points3D[i][1]
-		A[2*i+1][5] = points3D[i][2]
-		A[2*i+1][6] = -points3D[i][0]*normalized[1]
-		A[2*i+1][7] = -points3D[i][1]*normalized[1]
-		A[2*i+1][8] = -points3D[i][2]*normalized[1]
-		A[2*i+1][10] = 1
-		A[2*i+1][11] = -normalized[1]
+	# 	A[2*i+1][3] = points3D[i][0]
+	# 	A[2*i+1][4] = points3D[i][1]
+	# 	A[2*i+1][5] = points3D[i][2]
+	# 	A[2*i+1][6] = -points3D[i][0]*normalized[1]
+	# 	A[2*i+1][7] = -points3D[i][1]*normalized[1]
+	# 	A[2*i+1][8] = -points3D[i][2]*normalized[1]
+	# 	A[2*i+1][10] = 1
+	# 	A[2*i+1][11] = -normalized[1]
 
-	u, s, vt = np.linalg.svd(A)
-	pose = vt[-1]
-	trans = np.array([pose[9:]]).T
-	rot = np.array(pose[:9]).reshape((3,3))
-	ru, rs, rvt = np.linalg.svd(rot)
-	rot = np.dot(ru, rvt)
-	newH = np.vstack((np.hstack((rot, trans)), np.array([0,0,0,1])))
-	prevH = np.dot(prevH, newH)
+	# u, s, vt = np.linalg.svd(A)
+	# pose = vt[-1]
+	# trans = np.array([pose[9:]]).T
+	# rot = np.array(pose[:9]).reshape((3,3))
+	# ru, rs, rvt = np.linalg.svd(rot)
+	# rot = np.dot(ru, rvt)
+	newH = np.vstack((np.hstack((Rcorr, tcorr)), np.array([0,0,0,1])))
+	print(tcorr)
+	prevH = np.matmul(prevH, newH)
 	pos = np.matmul(prevH, origin)
 	#print(ru)
 
 
 	with open('cameraPositions.csv', mode='a+', newline='') as file:
 		csv_writer = writer(file)
-		csv_writer.writerow(pose[9:])
+		csv_writer.writerow(pos)
 	cameraX.append(pos[0])
 	cameraY.append(pos[1])
 	cameraZ.append(pos[2])
 
-	plt.plot(cameraX, cameraZ, '-ro')
-	plt.pause(0.01)
+	plt.plot(pos[0], pos[2], '-ro')
+	plt.pause(0.0001)
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')
 #ax = fig.add_subplot(111)
 #ax.scatter(cameraX, cameraZ)
 #plt.pause(0.1)
-
+print("Done")
 plt.show()
