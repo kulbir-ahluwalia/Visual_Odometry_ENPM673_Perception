@@ -148,3 +148,5 @@ cython_debug/
 .idea/vcs.xml
 ENPM673_Spring2020_Project_5.pdf
 Oxford_dataset/
+.idea/workspace.xml
+.idea/rSettings.xml

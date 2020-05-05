@@ -192,8 +192,8 @@ def append_rows_in_csv_file(file_name, between_photos_index, list_of_elem1, list
 		csv_writer.writerow(list_of_elem4)
 
 
-imagesList = os.listdir('Oxford_dataset/data')
-fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('Oxford_dataset/model')
+imagesList = os.listdir('./Oxford_dataset/data')
+fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('./Oxford_dataset/model')
 KMatrix = np.array([[fx, 0, cx],[0, fy, cy],[0, 0, 1]])
 PMatrix = np.array([[fx, 0, cx, 0],[0, fy, cy, 0],[0, 0, 1, 0]])
 
@@ -213,11 +213,11 @@ stepSize = 3
 
 for index in range(0, len(imagesList)-stepSize, stepSize):
 	print(index)
-	img1 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index]))
+	img1 = cv2.imread(os.path.join('./Oxford_dataset/data',imagesList[index]))
 	#img1 = np.array(img1, np.uint8)
 	#print(img1.shape)
 	#img1 = cv2.equalizeHist(img1)
-	img2 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index+stepSize]))
+	img2 = cv2.imread(os.path.join('./Oxford_dataset/data',imagesList[index+stepSize]))
 	#img1 = np.array(img1, np.uint8)
 	#img2 = cv2.equalizeHist(img2)
 	cv2.imshow('', img1)
@@ -347,9 +347,28 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 	#################################
 
 	
-	#Rcorr, tcorr = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
+
+	Rcorr, tcorr, points3D = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
 	#ret, Rcorr, tcorr, mask = cv2.recoverPose(E, keypts1, keypts2)
-	
+	if abs(prevT - tcorr[2]) > 1:
+		tcorr[2][0] = -tcorr[2]
+	prevT = tcorr[2]
+
+	points3D = []
+	PMatrix2 = np.array([[Rcorr[0][0], Rcorr[0][1], Rcorr[0][2], tcorr[0]], \
+				[Rcorr[1][0], Rcorr[1][1], Rcorr[1][2], tcorr[1]], \
+				[Rcorr[2][0], Rcorr[2][1], Rcorr[2][2], tcorr[2]]])
+	PMatrix2 = np.dot(KMatrix, PMatrix2)
+	PMatrix1 = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0]])
+	for j in range(len(keypts1)):
+		A = np.array([keypts1[j][1]*PMatrix1[2] - PMatrix1[1], PMatrix1[0] - \
+			keypts1[j][0]*PMatrix1[2], keypts2[j][1]*PMatrix2[2] - PMatrix2[1],\
+			PMatrix2[0] - keypts2[j][0]])
+
+		u, s, vt = np.linalg.svd(A)
+		temp = vt[-1]
+		temp = temp/temp[-1]
+		points3D.append(temp[:3])
 
 	# points3D = []
 	# PMatrix2 = np.array([[Rcorr[0][0], Rcorr[0][1], Rcorr[0][2], tcorr[0]], \
@@ -414,8 +433,7 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 	rot = np.array(pose[:9]).reshape((3,3))
 	ru, rs, rvt = np.linalg.svd(rot)
 	rot = np.dot(ru, rvt)
-	print(Rcorr)
-	print(tcorr)
+
 	newH = np.vstack((np.hstack((Rcorr, tcorr)), np.array([0,0,0,1])))
 	print(tcorr)
 	prevH = np.matmul(prevH, newH)
