@@ -60,7 +60,7 @@ def getCorrectPose(Rset, Cset, points1, points2, KMatrix):
 		temp = temp/temp[-1]
 		points.append(temp[:3])
 	
-	return Rset[correct], np.array([-np.dot(Rset[i].T, Cset[correct])]).T, points
+	return Rset[correct], Cset[correct], points
 
 
 def generateSIFTKeyPts(img1, img2):
@@ -192,8 +192,8 @@ def append_rows_in_csv_file(file_name, between_photos_index, list_of_elem1, list
 		csv_writer.writerow(list_of_elem4)
 
 
-imagesList = os.listdir('./Oxford_dataset/data')
-fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('./Oxford_dataset/model')
+imagesList = os.listdir('Oxford_dataset/data')
+fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('Oxford_dataset/model')
 KMatrix = np.array([[fx, 0, cx],[0, fy, cy],[0, 0, 1]])
 PMatrix = np.array([[fx, 0, cx, 0],[0, fy, cy, 0],[0, 0, 1, 0]])
 
@@ -209,129 +209,129 @@ numPoints = 123
 lk_params = dict(winSize=(21, 21), criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.03))
 feature_detector = cv2.FastFeatureDetector_create(threshold=25, nonmaxSuppression=True)
 
-stepSize = 3
+stepSize = 1
 
 for index in range(0, len(imagesList)-stepSize, stepSize):
 	print(index)
-	img1 = cv2.imread(os.path.join('./Oxford_dataset/data',imagesList[index]))
+	img1 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index]))
 	#img1 = np.array(img1, np.uint8)
 	#print(img1.shape)
 	#img1 = cv2.equalizeHist(img1)
-	img2 = cv2.imread(os.path.join('./Oxford_dataset/data',imagesList[index+stepSize]))
+	img2 = cv2.imread(os.path.join('Oxford_dataset/data',imagesList[index+stepSize]))
 	#img1 = np.array(img1, np.uint8)
 	#img2 = cv2.equalizeHist(img2)
 	cv2.imshow('', img1)
-	keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
+	#keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
 
-	# temp = []
-	# prev_keypoint = feature_detector.detect(img1, None)
-	# for i in range(len(prev_keypoint)):
-	# 	temp.append([prev_keypoint[i].pt[0], prev_keypoint[i].pt[1]])
-	# keypts1 = np.array(temp, np.float32)
-	# keypts2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, keypts1, None, **lk_params)
-	# st = st.reshape((st.shape[0]))
-	# keypts1 = keypts1[st>0]
-	# keypts2 = keypts2[st>0]
+	temp = []
+	prev_keypoint = feature_detector.detect(img1, None)
+	for i in range(len(prev_keypoint)):
+		temp.append([prev_keypoint[i].pt[0], prev_keypoint[i].pt[1]])
+	keypts1 = np.array(temp, np.float32)
+	keypts2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, keypts1, None, **lk_params)
+	st = st.reshape((st.shape[0]))
+	keypts1 = keypts1[st>0]
+	keypts2 = keypts2[st>0]
 
 	#################################
 	# Code for generating csv files #
 
-	fundamentalMatrix = RANSAC(keypts1, keypts2)
-	# print("\nFundamental Matrix is:\n", fundamentalMatrix, "\n")
-	# print("Length of fundamental matrix is: ", len(fundamentalMatrix))
-	# print(fundamentalMatrix[1][2])
+	# fundamentalMatrix = RANSAC(keypts1, keypts2)
+	# # print("\nFundamental Matrix is:\n", fundamentalMatrix, "\n")
+	# # print("Length of fundamental matrix is: ", len(fundamentalMatrix))
+	# # print(fundamentalMatrix[1][2])
 
-	#Estimate Essential Matrix from Fundamental Matrix
-	# E = K_t.F.K
-	#essential_matrix = E
-	k = KMatrix
-	k_transpose = np.transpose(KMatrix)
+	# #Estimate Essential Matrix from Fundamental Matrix
+	# # E = K_t.F.K
+	# #essential_matrix = E
+	# k = KMatrix
+	# k_transpose = np.transpose(KMatrix)
 
-	# E, mask = cv2.findEssentialMat(keypts1, keypts2, KMatrix, cv2.RANSAC, 0.999, 1, None)
-	# mask = mask.reshape(mask.shape[0])
-	# keypts1 = keypts1[mask>0]
-	# keypts2 = keypts2[mask>0]
+	E, mask = cv2.findEssentialMat(keypts1, keypts2, KMatrix, cv2.RANSAC, 0.999, 1, None)
+	mask = mask.reshape(mask.shape[0])
+	keypts1 = keypts1[mask>0]
+	keypts2 = keypts2[mask>0]
 
-	E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
-	# print("Essential matrix is: \n", E, "\n")
+	# #E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
+	# # print("Essential matrix is: \n", E, "\n")
 
-	if not (np.linalg.det(E) == 0):
-	    # SVD decomposition of the fundamental matrix E
-	    E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = np.linalg.svd(E)
+	# if not (np.linalg.det(E) == 0):
+	#     # SVD decomposition of the fundamental matrix E
+	#     # E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = np.linalg.svd(E)
 
-	    # Replace Sigma matrix with (1,1,0)
-	    correction_matrix = np.array([[1,0,0],
-	                                  [0,1,0],
-	                                  [0,0,0]])
-	    # print(correction_matrix)
-	    E = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
-	    # print("\nCorrected essential matrix is: \n", E_corrected, "\n")
+	#     # # Replace Sigma matrix with (1,1,0)
+	#     # correction_matrix = np.array([[1,0,0],
+	#     #                               [0,1,0],
+	#     #                               [0,0,0]])
+	#     # # print(correction_matrix)
+	#     # E = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
+	#     # print("\nCorrected essential matrix is: \n", E_corrected, "\n")
 
-	    # calculate pose configurations
-	    w = np.array([[0,-1,0],
-	                  [1,0,0],
-	                  [0,0,1]])
+	#     calculate pose configurations
+	#     w = np.array([[0,-1,0],
+	#                   [1,0,0],
+	#                   [0,0,1]])
 
-	    w_transpose = np.transpose(w)
-	    # print(w[:,2])
-	    c1 = E__Umatrix[:,2]
-	    c2 = -E__Umatrix[:,2]
-	    c3 = E__Umatrix[:,2]
-	    c4 = -E__Umatrix[:,2]
+	#     w_transpose = np.transpose(w)
+	#     # print(w[:,2])
+	#     c1 = E__Umatrix[:,2]
+	#     c2 = -E__Umatrix[:,2]
+	#     c3 = E__Umatrix[:,2]
+	#     c4 = -E__Umatrix[:,2]
 
-	    # print("c1 is : ", c1)
-	    # print(len(c1))
-	    # print(c1[0])
-	    # print(c1.flatten())
+	#     # print("c1 is : ", c1)
+	#     # print(len(c1))
+	#     # print(c1[0])
+	#     # print(c1.flatten())
 
-	    r1 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
-	    r2 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
-	    r3 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
-	    r4 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
+	#     r1 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
+	#     r2 = np.matmul(E__Umatrix, np.matmul(w,E__Vtranspose))
+	#     r3 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
+	#     r4 = np.matmul(E__Umatrix, np.matmul(w_transpose,E__Vtranspose))
 
-	    # print(r4)
-	    # print(np.linalg.det(r4))
+	#     # print(r4)
+	#     # print(np.linalg.det(r4))
 
-	    #check r, det(r) should be 1
-	    #If det(R)=−1, the camera pose must be corrected i.e. C=−C and R=−R.
-	    r1_det = round(np.linalg.det(r1))
-	    r2_det = round(np.linalg.det(r2))
-	    r3_det = round(np.linalg.det(r3))
-	    r4_det = round(np.linalg.det(r4))
+	#     #check r, det(r) should be 1
+	#     #If det(R)=−1, the camera pose must be corrected i.e. C=−C and R=−R.
+	#     r1_det = round(np.linalg.det(r1))
+	#     r2_det = round(np.linalg.det(r2))
+	#     r3_det = round(np.linalg.det(r3))
+	#     r4_det = round(np.linalg.det(r4))
 
-	    if r1_det == -1:
-	        c1 = -c1
-	        r1 = -r1
+	#     if r1_det == -1:
+	#         c1 = -c1
+	#         r1 = -r1
 
-	    if r2_det == -1:
-	        c2 = -c2
-	        r2 = -r2
+	#     if r2_det == -1:
+	#         c2 = -c2
+	#         r2 = -r2
 
-	    if r3_det == -1:
-	        c3 = -c3
-	        r3 = -r3
+	#     if r3_det == -1:
+	#         c3 = -c3
+	#         r3 = -r3
 
-	    if r4_det == -1:
-	        c4 = -c4
-	        r4 = -r4
+	#     if r4_det == -1:
+	#         c4 = -c4
+	#         r4 = -r4
 
-	    # print(r4)
-	    # print(np.linalg.det(r4))
+	#     # print(r4)
+	#     # print(np.linalg.det(r4))
 
-	    # print("r1 is: \n",r1, "\n")
-	    # print(r1[2][2])
+	#     # print("r1 is: \n",r1, "\n")
+	#     # print(r1[2][2])
 
-	    r1_flat = r1.flatten()
-	    r2_flat = r2.flatten()
-	    r3_flat = r3.flatten()
-	    r4_flat = r4.flatten()
+	#     r1_flat = r1.flatten()
+	#     r2_flat = r2.flatten()
+	#     r3_flat = r3.flatten()
+	#     r4_flat = r4.flatten()
 
-	    # print("r1_flat is: \n",r1_flat,"\n")
+	#     # print("r1_flat is: \n",r1_flat,"\n")
 
-	    config1 = np.concatenate((c1, r1_flat), axis=0)
-	    config2 = np.concatenate((c2, r2_flat), axis=0)
-	    config3 = np.concatenate((c3, r3_flat), axis=0)
-	    config4 = np.concatenate((c4, r4_flat), axis=0)
+	#     config1 = np.concatenate((c1, r1_flat), axis=0)
+	#     config2 = np.concatenate((c2, r2_flat), axis=0)
+	#     config3 = np.concatenate((c3, r3_flat), axis=0)
+	#     config4 = np.concatenate((c4, r4_flat), axis=0)
 ##
 	    # print("camera config1 flat is: (c1,r1) = \n", config1, "\n")
 
@@ -347,17 +347,16 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 	#################################
 
 	
-
-	Rcorr, tcorr, points3D = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
-	#ret, Rcorr, tcorr, mask = cv2.recoverPose(E, keypts1, keypts2)
-	if abs(prevT - tcorr[2]) > 1:
-		tcorr[2][0] = -tcorr[2]
-	prevT = tcorr[2]
+	#Rcorr, tcorr, points3D = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
+	ret, Rcorr, tcorr, mask = cv2.recoverPose(E, keypts1, keypts2)
+	if abs(prevT - tcorr[2][0]) > 1:
+		tcorr[2][0] = -tcorr[2][0]
+	prevT = tcorr[2][0]
 
 	points3D = []
-	PMatrix2 = np.array([[Rcorr[0][0], Rcorr[0][1], Rcorr[0][2], tcorr[0]], \
-				[Rcorr[1][0], Rcorr[1][1], Rcorr[1][2], tcorr[1]], \
-				[Rcorr[2][0], Rcorr[2][1], Rcorr[2][2], tcorr[2]]])
+	PMatrix2 = np.array([[Rcorr[0][0], Rcorr[0][1], Rcorr[0][2], tcorr[0][0]], \
+				[Rcorr[1][0], Rcorr[1][1], Rcorr[1][2], tcorr[1][0]], \
+				[Rcorr[2][0], Rcorr[2][1], Rcorr[2][2], tcorr[2][0]]])
 	PMatrix2 = np.dot(KMatrix, PMatrix2)
 	PMatrix1 = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0]])
 	for j in range(len(keypts1)):
@@ -370,24 +369,8 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 		temp = temp/temp[-1]
 		points3D.append(temp[:3])
 
-	# points3D = []
-	# PMatrix2 = np.array([[Rcorr[0][0], Rcorr[0][1], Rcorr[0][2], tcorr[0]], \
-	# 			[Rcorr[1][0], Rcorr[1][1], Rcorr[1][2], tcorr[1]], \
-	# 			[Rcorr[2][0], Rcorr[2][1], Rcorr[2][2], tcorr[2]]])
-	# PMatrix2 = np.dot(KMatrix, PMatrix2)
-	# PMatrix1 = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0]])
-	# for j in range(len(keypts1)):
-	# 	A = np.array([keypts1[j][1]*PMatrix1[2] - PMatrix1[1], PMatrix1[0] - \
-	# 		keypts1[j][0]*PMatrix1[2], keypts2[j][1]*PMatrix2[2] - PMatrix2[1],\
-	# 		PMatrix2[0] - keypts2[j][0]])
-
-	# 	u, s, vt = np.linalg.svd(A)
-	# 	temp = vt[-1]
-	# 	temp = temp/temp[-1]
-	# 	points3D.append(temp[:3])
-
-	Cset = [np.array(config1[:3], np.float32), np.array(config2[:3], np.float32), np.array(config3[:3], np.float32), np.array(config3[:3], np.float32)]
-	Rset = [np.array(config1[3:], np.float32).reshape((3,3)), np.array(config2[3:], np.float32).reshape((3,3)), np.array(config3[3:], np.float32).reshape((3,3)), np.array(config4[3:], np.float32).reshape((3,3))]
+	Cset = []
+	Rset = []
 
 	# with open('camera_poses.csv', mode='r') as file:
 	# 	csvReader = reader(file, delimiter=',')
@@ -400,40 +383,36 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 	# 			Rset.append(np.array(line[3:], np.float32).reshape((3,3)))
 
 	
-	Rcorr, tcorr, points3D = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
-	if abs(prevT - tcorr[2]) > 1:
-		tcorr[2] = -tcorr[2]
-	prevT = tcorr[2]
+	#Rcorr, Ccorr, points3D = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
 	A = np.zeros((2*len(keypts2), 12))
 
-	for i in range(len(keypts2)):
-		normalized = np.dot(np.linalg.inv(KMatrix), np.array([keypts1[i][0], keypts1[i][1], 1]))
-		#print(points3D)
-		A[2*i][0] = points3D[i][0]
-		A[2*i][1] = points3D[i][1]
-		A[2*i][2] = points3D[i][2]
-		A[2*i][6] = -points3D[i][0]*normalized[0]
-		A[2*i][7] = -points3D[i][1]*normalized[0]
-		A[2*i][8] = -points3D[i][2]*normalized[0]
-		A[2*i][9] = 1
-		A[2*i][11] = -normalized[0]
+	# for i in range(len(keypts2)):
+	# 	normalized = np.dot(np.linalg.inv(KMatrix), np.array([keypts1[i][0], keypts1[i][1], 1]))
+	# 	#print(points3D)
+	# 	A[2*i][0] = points3D[i][0]
+	# 	A[2*i][1] = points3D[i][1]
+	# 	A[2*i][2] = points3D[i][2]
+	# 	A[2*i][6] = -points3D[i][0]*normalized[0]
+	# 	A[2*i][7] = -points3D[i][1]*normalized[0]
+	# 	A[2*i][8] = -points3D[i][2]*normalized[0]
+	# 	A[2*i][9] = 1
+	# 	A[2*i][11] = -normalized[0]
 
-		A[2*i+1][3] = points3D[i][0]
-		A[2*i+1][4] = points3D[i][1]
-		A[2*i+1][5] = points3D[i][2]
-		A[2*i+1][6] = -points3D[i][0]*normalized[1]
-		A[2*i+1][7] = -points3D[i][1]*normalized[1]
-		A[2*i+1][8] = -points3D[i][2]*normalized[1]
-		A[2*i+1][10] = 1
-		A[2*i+1][11] = -normalized[1]
+	# 	A[2*i+1][3] = points3D[i][0]
+	# 	A[2*i+1][4] = points3D[i][1]
+	# 	A[2*i+1][5] = points3D[i][2]
+	# 	A[2*i+1][6] = -points3D[i][0]*normalized[1]
+	# 	A[2*i+1][7] = -points3D[i][1]*normalized[1]
+	# 	A[2*i+1][8] = -points3D[i][2]*normalized[1]
+	# 	A[2*i+1][10] = 1
+	# 	A[2*i+1][11] = -normalized[1]
 
-	u, s, vt = np.linalg.svd(A)
-	pose = vt[-1]
-	trans = np.array([pose[9:]]).T
-	rot = np.array(pose[:9]).reshape((3,3))
-	ru, rs, rvt = np.linalg.svd(rot)
-	rot = np.dot(ru, rvt)
-
+	# u, s, vt = np.linalg.svd(A)
+	# pose = vt[-1]
+	# trans = np.array([pose[9:]]).T
+	# rot = np.array(pose[:9]).reshape((3,3))
+	# ru, rs, rvt = np.linalg.svd(rot)
+	# rot = np.dot(ru, rvt)
 	newH = np.vstack((np.hstack((Rcorr, tcorr)), np.array([0,0,0,1])))
 	print(tcorr)
 	prevH = np.matmul(prevH, newH)
