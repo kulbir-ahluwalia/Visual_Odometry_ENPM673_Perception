@@ -192,8 +192,8 @@ def append_rows_in_csv_file(file_name, between_photos_index, list_of_elem1, list
 		csv_writer.writerow(list_of_elem4)
 
 
-imagesList = os.listdir('../Oxford_dataset/data')
-fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('../Oxford_dataset/model')
+imagesList = os.listdir('Oxford_dataset/data')
+fx, fy, cx, cy, Gcamera_image, LUT = ReadCameraModel('Oxford_dataset/model')
 KMatrix = np.array([[fx, 0, cx],[0, fy, cy],[0, 0, 1]])
 PMatrix = np.array([[fx, 0, cx, 0],[0, fy, cy, 0],[0, 0, 1, 0]])
 
@@ -209,7 +209,7 @@ numPoints = 123
 lk_params = dict(winSize=(21, 21), criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.03))
 feature_detector = cv2.FastFeatureDetector_create(threshold=25, nonmaxSuppression=True)
 
-stepSize = 2
+stepSize = 1
 
 for index in range(0, len(imagesList)-stepSize, stepSize):
 	print(index)
@@ -221,17 +221,17 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 	#img1 = np.array(img1, np.uint8)
 	#img2 = cv2.equalizeHist(img2)
 	cv2.imshow('', img1)
-	keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
+	#keypts1, keypts2 = generateSIFTKeyPts(img1, img2) #each is a list of best points which match the images (75)
 
-	# temp = []
-	# prev_keypoint = feature_detector.detect(img1, None)
-	# for i in range(len(prev_keypoint)):
-	# 	temp.append([prev_keypoint[i].pt[0], prev_keypoint[i].pt[1]])
-	# keypts1 = np.array(temp, np.float32)
-	# keypts2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, keypts1, None, **lk_params)
-	# st = st.reshape((st.shape[0]))
-	# keypts1 = keypts1[st>0]
-	# keypts2 = keypts2[st>0]
+	temp = []
+	prev_keypoint = feature_detector.detect(img1, None)
+	for i in range(len(prev_keypoint)):
+		temp.append([prev_keypoint[i].pt[0], prev_keypoint[i].pt[1]])
+	keypts1 = np.array(temp, np.float32)
+	keypts2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, keypts1, None, **lk_params)
+	st = st.reshape((st.shape[0]))
+	keypts1 = keypts1[st>0]
+	keypts2 = keypts2[st>0]
 
 	#################################
 	# Code for generating csv files #
@@ -247,22 +247,27 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 	# k = KMatrix
 	# k_transpose = np.transpose(KMatrix)
 
-	# E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
+	E, mask = cv2.findEssentialMat(keypts1, keypts2, KMatrix, cv2.RANSAC, 0.999, 1, None)
+	mask = mask.reshape(mask.shape[0])
+	keypts1 = keypts1[mask>0]
+	keypts2 = keypts2[mask>0]
+
+	# #E = np.matmul(k_transpose, np.matmul(fundamentalMatrix,k))
 	# # print("Essential matrix is: \n", E, "\n")
 
 	# if not (np.linalg.det(E) == 0):
 	#     # SVD decomposition of the fundamental matrix E
-	#     E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = np.linalg.svd(E)
+	#     # E__Umatrix, E__Sigma_eigen_value_matrix, E__Vtranspose = np.linalg.svd(E)
 
-	#     # Replace Sigma matrix with (1,1,0)
-	#     correction_matrix = np.array([[1,0,0],
-	#                                   [0,1,0],
-	#                                   [0,0,0]])
-	#     # print(correction_matrix)
-	#     E_corrected = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
+	#     # # Replace Sigma matrix with (1,1,0)
+	#     # correction_matrix = np.array([[1,0,0],
+	#     #                               [0,1,0],
+	#     #                               [0,0,0]])
+	#     # # print(correction_matrix)
+	#     # E = np.matmul(E__Umatrix, np.matmul(correction_matrix,E__Vtranspose))
 	#     # print("\nCorrected essential matrix is: \n", E_corrected, "\n")
 
-	#     #calculate pose configurations
+	#     calculate pose configurations
 	#     w = np.array([[0,-1,0],
 	#                   [1,0,0],
 	#                   [0,0,1]])
@@ -327,25 +332,22 @@ for index in range(0, len(imagesList)-stepSize, stepSize):
 	#     config2 = np.concatenate((c2, r2_flat), axis=0)
 	#     config3 = np.concatenate((c3, r3_flat), axis=0)
 	#     config4 = np.concatenate((c4, r4_flat), axis=0)
+##
+	    # print("camera config1 flat is: (c1,r1) = \n", config1, "\n")
 
-	#     # print("camera config1 flat is: (c1,r1) = \n", config1, "\n")
-
-	#     # print("\nConfiguration 1 is: \n", config1)
-	#     # print("\nConfiguration 2 is: \n", config2)
-	#     # print("\nConfiguration 3 is: \n", config3)
-	#     # print("\nConfiguration 4 is: \n", config4)
-	#     #
-	#     append_rows_in_csv_file('camera_poses.csv',index, config1, config2, config3, config4)
-	#     # append_rows_in_csv_file('camera_poses.csv',index, [config1], [config2], [config3], [config4])
+	    # print("\nConfiguration 1 is: \n", config1)
+	    # print("\nConfiguration 2 is: \n", config2)
+	    # print("\nConfiguration 3 is: \n", config3)
+	    # print("\nConfiguration 4 is: \n", config4)
+	    #
+	#    append_rows_in_csv_file('camera_poses.csv',index, config1, config2, config3, config4)
+	    # append_rows_in_csv_file('camera_poses.csv',index, [config1], [config2], [config3], [config4])
 
 	# Code for generating csv files #
 	#################################
 
-	E, mask = cv2.findEssentialMat(keypts1, keypts2, KMatrix, cv2.RANSAC, 0.999, 1, None)
-	mask = mask.reshape(mask.shape[0])
-	keypts1 = keypts1[mask>0]
-	keypts2 = keypts2[mask>0]
-
+	
+	#Rcorr, tcorr, points3D = getCorrectPose(Rset, Cset, keypts1, keypts2, KMatrix)
 	ret, Rcorr, tcorr, mask = cv2.recoverPose(E, keypts1, keypts2)
 	if abs(prevT - tcorr[2][0]) > 1:
 		tcorr[2][0] = -tcorr[2][0]
